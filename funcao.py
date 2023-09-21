@@ -109,7 +109,6 @@ class Client:
             datagrama.append(pacote['head'][n]+(pacote['payload'][n]+pacote['eop'][n]))
 
         self.datagramas.append(datagrama)
-        #print(self.datagramas)
        
 
     def enviaByteSacrificio(self) -> None:
@@ -139,8 +138,6 @@ class Client:
 
    # def enviaDatagrama(self, id_arquivo: int):
         
-
-
     def getFeedback(self, n: int):
         rxBuffer, nRx, check = self.com1.getData_teste(n)
         return rxBuffer, nRx, check
