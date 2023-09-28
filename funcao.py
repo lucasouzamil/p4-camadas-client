@@ -1,6 +1,7 @@
 from enlace import *
 import numpy as np
 import time
+import crcmod
 
 def cria_pacotes(arquivo, simulado='a'):
 
@@ -114,6 +115,10 @@ class Client:
                 pacote['head'][n][3]=QNTD_PACOTES-1
                 pacote['head'][n][4]=n
                 pacote['head'][n][5]=len(pacote['payload'][n]) # Se tipo for dados: tamanho do payload.
+                crc = self.__criaCRC(pacote['payload'][n])
+                pacote['head'][n][8]=crc[0]
+                pacote['head'][n][9]= crc[1]
+
             
             #print(pacote['head'][n],pacote['payload'][n],pacote['eop'][n])
             #print('')
@@ -150,7 +155,13 @@ class Client:
             timer1 = time.time()
             timer2 = timer1
 
-            feedback = self.getFeedback()
+            feedback, check = self.com.rx.getNData_timer(14,10)
+            if not check:
+                print('[ERRO] Tempo de espera excedido')
+                break
+            else:
+                feedback = [int(byte) for byte in feedback]
+
             tipo = feedback[0]
 
             if tipo == 5:
@@ -163,6 +174,7 @@ class Client:
                     self.com.sendData(np.asarray(datagrama[cont]))
                     time.sleep(.05)
                     timer1 = time.time()
+                print(time.time()-timer2)
                 if ((time.time()-timer2) > 20):
                     self.com.sendData(np.asarray(b'\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\xAA\xBB\xCC\xDD'))
                     time.sleep(.05)
@@ -176,14 +188,21 @@ class Client:
                         timer1 = time.time()
                         timer2 = timer1
 
-        print('[SUCESSO] Todos pacotes foram enviados')
-
+        if cont > num_pacotes:
+            print('[SUCESSO] Todos pacotes foram enviados')
+        else:
+            print('[ERRO] Falha na comunicação')
     
-        
+    def __criaCRC(self, payload: bytearray):
+        crc16 = crcmod.predefined.Crc('crc-16') 
+        crc16.update(bytes(payload))
+        crc_value = crc16.crcValue
+        byte_array = int.to_bytes(crc_value, 2, byteorder='big')
+        return byte_array
+
     def getFeedback(self):
         rxBuffer, nRx = self.com.getData(14)
         return [int(byte) for byte in rxBuffer]
-
 
     def off(self):
         self.com.disable()
@@ -241,6 +260,7 @@ def criaDatagrama(arquivo: bytearray, id_arquivo: int, id_servidor: int, tam_pay
         datagrama.append(pacote['head'][n]+(pacote['payload'][n]+pacote['eop'][n]))
 
     return datagrama
+
 
 #   h0 – Tipo de mensagem.
 #   h1 – Se tipo for 1: número do servidor. Qualquer outro tipo: livre
